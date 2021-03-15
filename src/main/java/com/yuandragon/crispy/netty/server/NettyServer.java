@@ -23,7 +23,7 @@ public class NettyServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyServer.class);
 
     public void init() throws Exception {
-        NettyHttpServerHandler nettyHttpServerHandler = new NettyHttpServerHandler(new ServerTransport());
+        NettyHttpServerHandler nettyHttpServerHandler = new NettyHttpServerHandler();
 
         EventLoopGroup parentGroup = new NioEventLoopGroup();
         EventLoopGroup childGroup = new NioEventLoopGroup();
