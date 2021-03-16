@@ -46,42 +46,47 @@ public class HandlerManager {
      */
     public void handlerDispatcher(ChannelHandlerContext channelHandlerContext, FullHttpRequest request) {
         NettyChannel nettyChannel = new NettyChannel(channelHandlerContext);
-        // 返回失败
-        if (request.decoderResult().isFailure()) {
-            nettyChannel.sendResponseAndClose(new Response<>(RestStatus.INTERNAL_SERVER_ERROR, "request not found"));
-        }
-
-        // 获取处理服务
-        String serviceCode = request.uri();
-        // 如果为get请求
-        if (request.method().equals(HttpMethod.GET)) {
-            int pathEndPos = serviceCode.indexOf('?');
-            if (pathEndPos > -1) {
-                serviceCode = serviceCode.substring(0, pathEndPos);
+        try {
+            // 返回失败
+            if (request.decoderResult().isFailure()) {
+                nettyChannel.sendResponseAndClose(new Response<>(RestStatus.INTERNAL_SERVER_ERROR, "request not found"));
             }
-        }
 
-        // 集群才判断，判断服务是否开启，存在同步的情况，数据未完成同步，则不开启服务
-        if (CrispySettingConfig.NODE_MODEL.equals(CrispySettingConfig.CLUSTER) && isClose()) {
-            // 刚启动只支持raft的请求
-            if (!serviceCode.equals(RaftHandler.SERVICE_CODE)) {
-                nettyChannel.sendResponseAndClose(new Response<>(RestStatus.UNAUTHORIZED, "synchronizing log"));
+            // 获取处理服务
+            String serviceCode = request.uri();
+            // 如果为get请求
+            if (request.method().equals(HttpMethod.GET)) {
+                int pathEndPos = serviceCode.indexOf('?');
+                if (pathEndPos > -1) {
+                    serviceCode = serviceCode.substring(0, pathEndPos);
+                }
             }
-        }
 
-        // 获取服务处理器
-        Handler handler = HANDLER_MAP.get(serviceCode);
-        if (handler == null) {
-            nettyChannel.sendResponseAndClose(new Response<>(RestStatus.BAD_REQUEST, "request not found"));
-            return;
+            // 集群才判断，判断服务是否开启，存在同步的情况，数据未完成同步，则不开启服务
+            if (CrispySettingConfig.NODE_MODEL.equals(CrispySettingConfig.CLUSTER) && isClose()) {
+                // 刚启动只支持raft的请求
+                if (!serviceCode.equals(RaftHandler.SERVICE_CODE)) {
+                    nettyChannel.sendResponseAndClose(new Response<>(RestStatus.UNAUTHORIZED, "synchronizing log"));
+                }
+            }
+
+            // 获取服务处理器
+            Handler handler = HANDLER_MAP.get(serviceCode);
+            if (handler == null) {
+                nettyChannel.sendResponseAndClose(new Response<>(RestStatus.BAD_REQUEST, "request not found"));
+                return;
+            }
+            // 获取请求参数
+            Map<String, Object> params = getParams(nettyChannel, request);
+            // 包装
+            NettyRequest nettyRequest = new NettyRequest(request, params);
+            // 交给处理器处理
+            Response response = handler.handle(nettyRequest);
+            nettyChannel.sendResponseAndClose(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            nettyChannel.sendResponseAndClose(new Response<>(RestStatus.INTERNAL_SERVER_ERROR, "server error"));
         }
-        // 获取请求参数
-        Map<String, Object> params = getParams(nettyChannel, request);
-        // 包装
-        NettyRequest nettyRequest = new NettyRequest(request, params);
-        // 交给处理器处理
-        Response response = handler.handle(nettyRequest);
-        nettyChannel.sendResponseAndClose(response);
     }
 
     /**
