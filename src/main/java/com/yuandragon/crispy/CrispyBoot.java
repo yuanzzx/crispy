@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -55,7 +56,7 @@ public class CrispyBoot {
         // 获取当前路径
         String path = System.getProperty("user.dir");
         Properties properties = new Properties();
-        properties.load(new FileInputStream(new File(path + "/crispyConfig.properties")));
+        properties.load(Files.newInputStream(new File(path + "/crispyConfig.properties").toPath()));
 
         HashMap<String, String> configMap = new HashMap<>();
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
